@@ -1,5 +1,6 @@
 """Evaluation: 50-run stats, multi-seed comparison, video recording, failure analysis."""
 
+import csv
 import os
 
 import numpy as np
@@ -125,6 +126,60 @@ def plot_training_curves(rewards_dict: dict, save_path: str = "results/figures/t
         window = min(10, len(rewards))
         smoothed = np.convolve(rewards, np.ones(window) / window, mode="valid")
         plt.plot(episodes[:len(smoothed)], smoothed, label=label)
+    plt.xlabel("Episode")
+    plt.ylabel("Reward (rolling mean)")
+    plt.title("Training curves")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150)
+    plt.close()
+    print(f"Training curves saved: {save_path}")
+
+
+def save_training_rewards_csv(agent_name: str, seed: int, rewards: list,
+                              path: str = "results/training_rewards.csv"):
+    """Append per-episode training rewards to CSV. Creates file with header if needed."""
+    write_header = not os.path.exists(path)
+    with open(path, "a", newline="") as f:
+        writer = csv.writer(f)
+        if write_header:
+            writer.writerow(["agent", "seed", "episode", "reward"])
+        for ep, r in enumerate(rewards):
+            writer.writerow([agent_name, seed, ep + 1, f"{r:.4f}"])
+    print(f"Training rewards saved: {path} ({agent_name}, seed={seed})")
+
+
+def save_eval_results_csv(agent_name: str, seed: int, rewards: np.ndarray, failures: list,
+                          path: str = "results/eval_results.csv"):
+    """Append per-episode eval results to CSV. Creates file with header if needed."""
+    write_header = not os.path.exists(path)
+    failure_eps = {f["episode"]: f for f in failures}
+    with open(path, "a", newline="") as f:
+        writer = csv.writer(f)
+        if write_header:
+            writer.writerow(["agent", "seed", "episode", "reward", "crashed", "steps", "speed"])
+        for ep, r in enumerate(rewards):
+            fail = failure_eps.get(ep)
+            crashed = fail is not None
+            steps = fail["steps"] if fail else ""
+            speed = f"{fail['speed']:.2f}" if fail and fail["speed"] else ""
+            writer.writerow([agent_name, seed, ep + 1, f"{r:.4f}", crashed, steps, speed])
+    print(f"Eval results saved: {path} ({agent_name}, seed={seed})")
+
+
+def plot_training_curves_from_csv(csv_path: str = "results/training_rewards.csv",
+                                  save_path: str = "results/figures/training_curves.png"):
+    """Regenerate training curves from CSV (works even with partial data)."""
+    import pandas as pd
+    df = pd.read_csv(csv_path)
+    plt.figure(figsize=(10, 6))
+    for (agent, seed), group in df.groupby(["agent", "seed"]):
+        rewards = group.sort_values("episode")["reward"].values
+        window = min(10, len(rewards))
+        smoothed = np.convolve(rewards, np.ones(window) / window, mode="valid")
+        episodes = np.arange(1, len(smoothed) + 1)
+        plt.plot(episodes, smoothed, label=f"{agent} seed={seed}")
     plt.xlabel("Episode")
     plt.ylabel("Reward (rolling mean)")
     plt.title("Training curves")

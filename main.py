@@ -25,6 +25,8 @@ from core.evaluation import (
     print_comparison_table,
     print_failure_analysis,
     record_video,
+    save_training_rewards_csv,
+    save_eval_results_csv,
 )
 
 
@@ -62,6 +64,10 @@ def main():
     os.makedirs("results/figures", exist_ok=True)
     os.makedirs("results/videos", exist_ok=True)
 
+    for csv_file in ["results/training_rewards.csv", "results/eval_results.csv"]:
+        if os.path.exists(csv_file):
+            os.remove(csv_file)
+
     seed_list = list(range(42, 42 + args.seeds))
     all_training_curves = {}
     eval_results = {"DQN (ours)": {}, "SB3 DQN": {}}
@@ -92,6 +98,7 @@ def main():
         print(f"\n[DQN] Training ({args.episodes} episodes)...")
         set_seed(seed)
         train_env = make_env()
+        checkpoint_path = f"results/checkpoints/dqn_seed{seed}.pt"
         agent = DQNAgent(
             obs_shape=obs_shape,
             n_actions=n_actions,
@@ -101,11 +108,15 @@ def main():
             batch_size=64,
             target_update_freq=200,
         )
-        dqn_rewards = train_dqn(train_env, agent, n_episodes=args.episodes, verbose=True)
+        dqn_rewards = train_dqn(
+            train_env, agent, n_episodes=args.episodes, verbose=True,
+            checkpoint_path=checkpoint_path, checkpoint_every=50,
+        )
         train_env.close()
 
-        agent.save(f"results/checkpoints/dqn_seed{seed}.pt")
+        agent.save(checkpoint_path)
         all_training_curves[f"DQN seed={seed}"] = dqn_rewards
+        save_training_rewards_csv("DQN (ours)", seed, dqn_rewards)
 
         print(f"[DQN] Evaluating ({args.eval_episodes} episodes)...")
         eval_env = make_eval_env()
@@ -116,6 +127,7 @@ def main():
         eval_env.close()
         eval_results["DQN (ours)"][seed] = dqn_eval
         all_failures["DQN (ours)"].extend(dqn_failures)
+        save_eval_results_csv("DQN (ours)", seed, dqn_eval, dqn_failures)
 
         if best_dqn_agent is None or dqn_eval.mean() > max(
             r.mean() for r in eval_results["DQN (ours)"].values()
@@ -131,6 +143,7 @@ def main():
         )
         if sb3_train_rewards:
             all_training_curves[f"SB3 seed={seed}"] = sb3_train_rewards
+            save_training_rewards_csv("SB3 DQN", seed, sb3_train_rewards)
 
         print(f"[SB3] Evaluating ({args.eval_episodes} episodes)...")
         eval_env = make_eval_env()
@@ -141,6 +154,7 @@ def main():
         eval_env.close()
         eval_results["SB3 DQN"][seed] = sb3_eval
         all_failures["SB3 DQN"].extend(sb3_failures)
+        save_eval_results_csv("SB3 DQN", seed, sb3_eval, sb3_failures)
 
         if best_sb3_model is None or sb3_eval.mean() > max(
             r.mean() for r in eval_results["SB3 DQN"].values()

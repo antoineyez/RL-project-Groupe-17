@@ -134,7 +134,8 @@ class DQNAgent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
 
-def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True):
+def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True,
+              checkpoint_path: str = None, checkpoint_every: int = 50):
     """Boucle d'entraînement DQN."""
     episode_rewards = []
     pbar = tqdm(range(n_episodes), desc="DQN Training", disable=not verbose)
@@ -155,5 +156,8 @@ def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True)
         episode_rewards.append(total_reward)
         avg = np.mean(episode_rewards[-10:])
         pbar.set_postfix(reward=f"{total_reward:.1f}", avg10=f"{avg:.1f}", eps=f"{agent.epsilon:.3f}")
+
+        if checkpoint_path and (episode + 1) % checkpoint_every == 0:
+            agent.save(checkpoint_path)
 
     return episode_rewards
