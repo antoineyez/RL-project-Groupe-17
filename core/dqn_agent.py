@@ -5,6 +5,7 @@ from collections import deque
 
 import numpy as np
 import torch
+from tqdm import tqdm
 import torch.nn as nn
 import torch.optim as optim
 
@@ -136,8 +137,9 @@ class DQNAgent:
 def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True):
     """Boucle d'entraînement DQN."""
     episode_rewards = []
+    pbar = tqdm(range(n_episodes), desc="DQN Training", disable=not verbose)
 
-    for episode in range(n_episodes):
+    for episode in pbar:
         obs, info = env.reset()
         total_reward = 0
         done = truncated = False
@@ -151,11 +153,7 @@ def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True)
             total_reward += reward
 
         episode_rewards.append(total_reward)
-
-        if verbose and (episode + 1) % 10 == 0:
-            avg = np.mean(episode_rewards[-10:])
-            print(f"Episode {episode+1}/{n_episodes} | "
-                  f"Reward: {total_reward:.2f} | Avg10: {avg:.2f} | "
-                  f"Eps: {agent.epsilon:.3f}")
+        avg = np.mean(episode_rewards[-10:])
+        pbar.set_postfix(reward=f"{total_reward:.1f}", avg10=f"{avg:.1f}", eps=f"{agent.epsilon:.3f}")
 
     return episode_rewards

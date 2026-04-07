@@ -6,6 +6,7 @@ import numpy as np
 import gymnasium as gym
 import highway_env  # noqa: F401
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from configs.shared_core_config import SHARED_CORE_CONFIG, SHARED_CORE_ENV_ID
 
@@ -35,7 +36,7 @@ def evaluate_with_failure_analysis(env, select_action_fn, n_episodes: int = 50):
     """Evaluate and collect failure data (episodes ending in crash)."""
     rewards = []
     failures = []
-    for ep in range(n_episodes):
+    for ep in tqdm(range(n_episodes), desc="Evaluating"):
         obs, _ = env.reset()
         total_reward = 0
         done = truncated = False

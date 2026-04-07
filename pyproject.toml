@@ -6,10 +6,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "highway-env>=1.8",
-    "gymnasium>=0.28",
+    "gymnasium[other]>=0.28",
     "stable-baselines3>=2.0",
     "torch>=2.0",
     "numpy>=1.24",
     "matplotlib>=3.7",
     "pymupdf>=1.27.2.2",
+    "tqdm>=4.67.3",
 ]

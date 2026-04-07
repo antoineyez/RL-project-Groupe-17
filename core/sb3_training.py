@@ -6,6 +6,7 @@ import highway_env  # noqa: F401
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
+from tqdm import tqdm
 
 from configs.shared_core_config import SHARED_CORE_CONFIG, SHARED_CORE_ENV_ID
 
@@ -13,22 +14,30 @@ from configs.shared_core_config import SHARED_CORE_CONFIG, SHARED_CORE_ENV_ID
 def make_env():
     env = gym.make(SHARED_CORE_ENV_ID, render_mode=None)
     env.unwrapped.configure(SHARED_CORE_CONFIG)
+    env.reset()
     return env
 
 
 class RewardLoggerCallback(BaseCallback):
     """Collects per-episode rewards during training."""
 
-    def __init__(self):
+    def __init__(self, total_timesteps: int):
         super().__init__()
         self.episode_rewards = []
+        self.pbar = tqdm(total=total_timesteps, desc="SB3 Training")
 
     def _on_step(self):
+        self.pbar.update(1)
         infos = self.locals.get("infos", [])
         for info in infos:
             if "episode" in info:
-                self.episode_rewards.append(info["episode"]["r"])
+                r = info["episode"]["r"]
+                self.episode_rewards.append(r)
+                self.pbar.set_postfix(ep_reward=f"{r:.1f}", episodes=len(self.episode_rewards))
         return True
+
+    def _on_training_end(self):
+        self.pbar.close()
 
 
 def train_sb3(
@@ -54,7 +63,7 @@ def train_sb3(
         seed=seed,
     )
 
-    callback = RewardLoggerCallback()
+    callback = RewardLoggerCallback(total_timesteps)
     model.learn(total_timesteps=total_timesteps, callback=callback)
     model.save(save_path)
     print(f"SB3 model saved: {save_path}")
