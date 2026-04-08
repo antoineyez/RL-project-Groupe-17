@@ -3,9 +3,9 @@ Core task pipeline: train DQN (ours) and SB3 DQN on highway-v0,
 evaluate over multiple seeds with 50 runs each, compare results.
 
 Usage:
-    python main.py                          # Full pipeline (3 seeds, 200 episodes)
-    python main.py --seeds 1 --episodes 50  # Quick run
-    python main.py --render                 # + visual demo after training
+    python main.py                                  # Full pipeline (3 seeds, 20k timesteps)
+    python main.py --timesteps 5000 --seeds 1       # Quick run
+    python main.py --render                         # + visual demo after training
 """
 
 import argparse
@@ -54,8 +54,7 @@ def run_visual_demo(agent: DQNAgent, n_episodes: int = 3):
 def main():
     parser = argparse.ArgumentParser(description="RL Project - Core Task Pipeline")
     parser.add_argument("--seeds", type=int, default=3, help="Number of seeds")
-    parser.add_argument("--episodes", type=int, default=200, help="Training episodes (DQN)")
-    parser.add_argument("--sb3-timesteps", type=int, default=50_000, help="SB3 training timesteps")
+    parser.add_argument("--timesteps", type=int, default=20_000, help="Training timesteps (both DQN and SB3)")
     parser.add_argument("--eval-episodes", type=int, default=50, help="Evaluation episodes per seed")
     parser.add_argument("--render", action="store_true", help="Visual demo after training")
     args = parser.parse_args()
@@ -84,8 +83,7 @@ def main():
 
     print(f"Environment: {SHARED_CORE_ENV_ID}")
     print(f"Observation: {obs_shape} | Actions: {n_actions}")
-    print(f"Seeds: {seed_list} | DQN episodes: {args.episodes} | "
-          f"SB3 timesteps: {args.sb3_timesteps}")
+    print(f"Seeds: {seed_list} | Timesteps: {args.timesteps}")
     print(f"Evaluation: {args.eval_episodes} episodes per seed\n")
 
     # ── Training and evaluation loop ──
@@ -95,7 +93,7 @@ def main():
         print(f"{'='*60}")
 
         # --- DQN (ours) ---
-        print(f"\n[DQN] Training ({args.episodes} episodes)...")
+        print(f"\n[DQN] Training ({args.timesteps} timesteps)...")
         set_seed(seed)
         train_env = make_env()
         checkpoint_path = f"results/checkpoints/dqn_seed{seed}.pt"
@@ -104,13 +102,13 @@ def main():
             n_actions=n_actions,
             lr=1e-3,
             gamma=0.99,
-            epsilon_decay=args.episodes * 15,
+            epsilon_decay=int(args.timesteps * 0.5),
             batch_size=64,
             target_update_freq=200,
         )
         dqn_rewards = train_dqn(
-            train_env, agent, n_episodes=args.episodes, verbose=True,
-            checkpoint_path=checkpoint_path, checkpoint_every=50,
+            train_env, agent, total_timesteps=args.timesteps, verbose=True,
+            checkpoint_path=checkpoint_path, checkpoint_every_steps=2000,
         )
         train_env.close()
 
@@ -135,9 +133,9 @@ def main():
             best_dqn_agent = agent
 
         # --- SB3 DQN ---
-        print(f"\n[SB3] Training ({args.sb3_timesteps} timesteps)...")
+        print(f"\n[SB3] Training ({args.timesteps} timesteps)...")
         sb3_model, sb3_train_rewards = train_sb3(
-            total_timesteps=args.sb3_timesteps,
+            total_timesteps=args.timesteps,
             seed=seed,
             save_path=f"results/checkpoints/sb3_dqn_seed{seed}",
         )

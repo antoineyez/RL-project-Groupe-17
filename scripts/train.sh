@@ -18,16 +18,14 @@ mkdir -p logs results/checkpoints results/figures results/videos
 
 # Default values, overridable via environment variables
 SEEDS=${SEEDS:-3}
-EPISODES=${EPISODES:-700}
-SB3_TIMESTEPS=${SB3_TIMESTEPS:-20000}
+TIMESTEPS=${TIMESTEPS:-40000}
 EVAL_EPISODES=${EVAL_EPISODES:-50}
 
-echo "Config: seeds=$SEEDS, episodes=$EPISODES, sb3_timesteps=$SB3_TIMESTEPS, eval_episodes=$EVAL_EPISODES"
+echo "Config: seeds=$SEEDS, timesteps=$TIMESTEPS, eval_episodes=$EVAL_EPISODES"
 
 python main.py \
     --seeds $SEEDS \
-    --episodes $EPISODES \
-    --sb3-timesteps $SB3_TIMESTEPS \
+    --timesteps $TIMESTEPS \
     --eval-episodes $EVAL_EPISODES
 
 echo "End time: $(date)"

@@ -134,18 +134,18 @@ class DQNAgent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
 
-def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True,
-              checkpoint_path: str = None, checkpoint_every: int = 50):
+def train_dqn(env, agent: DQNAgent, total_timesteps: int = 20_000, verbose: bool = True,
+              checkpoint_path: str = None, checkpoint_every_steps: int = 2000):
     """Boucle d'entraînement DQN. Returns list of (timestep, reward) tuples."""
     episode_results = []
-    total_timesteps = 0
-    pbar = tqdm(range(n_episodes), desc="DQN Training", disable=not verbose)
+    steps_done = 0
+    last_checkpoint = 0
+    pbar = tqdm(total=total_timesteps, desc="DQN Training", disable=not verbose)
 
-    for episode in pbar:
+    while steps_done < total_timesteps:
         obs, info = env.reset()
         total_reward = 0
         done = truncated = False
-        ep_steps = 0
 
         while not (done or truncated):
             action = agent.select_action(obs, training=True)
@@ -154,15 +154,20 @@ def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True,
             agent.train_step()
             obs = next_obs
             total_reward += reward
-            ep_steps += 1
+            steps_done += 1
+            pbar.update(1)
 
-        total_timesteps += ep_steps
-        episode_results.append((total_timesteps, total_reward))
+            if steps_done >= total_timesteps:
+                break
+
+        episode_results.append((steps_done, total_reward))
         avg = np.mean([r for _, r in episode_results[-10:]])
         pbar.set_postfix(reward=f"{total_reward:.1f}", avg10=f"{avg:.1f}",
-                         eps=f"{agent.epsilon:.3f}", steps=total_timesteps)
+                         eps=f"{agent.epsilon:.3f}", ep=len(episode_results))
 
-        if checkpoint_path and (episode + 1) % checkpoint_every == 0:
+        if checkpoint_path and steps_done - last_checkpoint >= checkpoint_every_steps:
             agent.save(checkpoint_path)
+            last_checkpoint = steps_done
 
+    pbar.close()
     return episode_results
