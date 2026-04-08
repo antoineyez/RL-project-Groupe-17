@@ -136,14 +136,16 @@ class DQNAgent:
 
 def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True,
               checkpoint_path: str = None, checkpoint_every: int = 50):
-    """Boucle d'entraînement DQN."""
-    episode_rewards = []
+    """Boucle d'entraînement DQN. Returns list of (timestep, reward) tuples."""
+    episode_results = []
+    total_timesteps = 0
     pbar = tqdm(range(n_episodes), desc="DQN Training", disable=not verbose)
 
     for episode in pbar:
         obs, info = env.reset()
         total_reward = 0
         done = truncated = False
+        ep_steps = 0
 
         while not (done or truncated):
             action = agent.select_action(obs, training=True)
@@ -152,12 +154,15 @@ def train_dqn(env, agent: DQNAgent, n_episodes: int = 200, verbose: bool = True,
             agent.train_step()
             obs = next_obs
             total_reward += reward
+            ep_steps += 1
 
-        episode_rewards.append(total_reward)
-        avg = np.mean(episode_rewards[-10:])
-        pbar.set_postfix(reward=f"{total_reward:.1f}", avg10=f"{avg:.1f}", eps=f"{agent.epsilon:.3f}")
+        total_timesteps += ep_steps
+        episode_results.append((total_timesteps, total_reward))
+        avg = np.mean([r for _, r in episode_results[-10:]])
+        pbar.set_postfix(reward=f"{total_reward:.1f}", avg10=f"{avg:.1f}",
+                         eps=f"{agent.epsilon:.3f}", steps=total_timesteps)
 
         if checkpoint_path and (episode + 1) % checkpoint_every == 0:
             agent.save(checkpoint_path)
 
-    return episode_rewards
+    return episode_results

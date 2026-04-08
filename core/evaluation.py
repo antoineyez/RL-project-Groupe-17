@@ -118,15 +118,19 @@ def record_video(select_action_fn, save_dir: str = "results/videos", name_prefix
     return total_reward
 
 
-def plot_training_curves(rewards_dict: dict, save_path: str = "results/figures/training_curves.png"):
-    """Plot smoothed training curves for multiple agents/seeds."""
+def plot_training_curves(results_dict: dict, save_path: str = "results/figures/training_curves.png"):
+    """Plot smoothed training curves for multiple agents/seeds.
+
+    results_dict: {label: [(timestep, reward), ...]}
+    """
     plt.figure(figsize=(10, 6))
-    for label, rewards in rewards_dict.items():
-        episodes = np.arange(1, len(rewards) + 1)
+    for label, results in results_dict.items():
+        timesteps = [t for t, _ in results]
+        rewards = [r for _, r in results]
         window = min(10, len(rewards))
         smoothed = np.convolve(rewards, np.ones(window) / window, mode="valid")
-        plt.plot(episodes[:len(smoothed)], smoothed, label=label)
-    plt.xlabel("Episode")
+        plt.plot(timesteps[:len(smoothed)], smoothed, label=label)
+    plt.xlabel("Timesteps")
     plt.ylabel("Reward (rolling mean)")
     plt.title("Training curves")
     plt.legend()
@@ -137,16 +141,19 @@ def plot_training_curves(rewards_dict: dict, save_path: str = "results/figures/t
     print(f"Training curves saved: {save_path}")
 
 
-def save_training_rewards_csv(agent_name: str, seed: int, rewards: list,
+def save_training_rewards_csv(agent_name: str, seed: int, results: list,
                               path: str = "results/training_rewards.csv"):
-    """Append per-episode training rewards to CSV. Creates file with header if needed."""
+    """Append per-episode training rewards to CSV.
+
+    results: list of (timestep, reward) tuples.
+    """
     write_header = not os.path.exists(path)
     with open(path, "a", newline="") as f:
         writer = csv.writer(f)
         if write_header:
-            writer.writerow(["agent", "seed", "episode", "reward"])
-        for ep, r in enumerate(rewards):
-            writer.writerow([agent_name, seed, ep + 1, f"{r:.4f}"])
+            writer.writerow(["agent", "seed", "episode", "timestep", "reward"])
+        for ep, (ts, r) in enumerate(results):
+            writer.writerow([agent_name, seed, ep + 1, ts, f"{r:.4f}"])
     print(f"Training rewards saved: {path} ({agent_name}, seed={seed})")
 
 
@@ -175,12 +182,13 @@ def plot_training_curves_from_csv(csv_path: str = "results/training_rewards.csv"
     df = pd.read_csv(csv_path)
     plt.figure(figsize=(10, 6))
     for (agent, seed), group in df.groupby(["agent", "seed"]):
-        rewards = group.sort_values("episode")["reward"].values
+        group = group.sort_values("timestep")
+        timesteps = group["timestep"].values
+        rewards = group["reward"].values
         window = min(10, len(rewards))
         smoothed = np.convolve(rewards, np.ones(window) / window, mode="valid")
-        episodes = np.arange(1, len(smoothed) + 1)
-        plt.plot(episodes, smoothed, label=f"{agent} seed={seed}")
-    plt.xlabel("Episode")
+        plt.plot(timesteps[:len(smoothed)], smoothed, label=f"{agent} seed={seed}")
+    plt.xlabel("Timesteps")
     plt.ylabel("Reward (rolling mean)")
     plt.title("Training curves")
     plt.legend()

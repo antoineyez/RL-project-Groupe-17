@@ -20,11 +20,11 @@ def make_env():
 
 
 class RewardLoggerCallback(BaseCallback):
-    """Collects per-episode rewards during training."""
+    """Collects per-episode (timestep, reward) tuples during training."""
 
     def __init__(self, total_timesteps: int):
         super().__init__()
-        self.episode_rewards = []
+        self.episode_results = []
         self.pbar = tqdm(total=total_timesteps, desc="SB3 Training")
 
     def _on_step(self):
@@ -33,8 +33,8 @@ class RewardLoggerCallback(BaseCallback):
         for info in infos:
             if "episode" in info:
                 r = info["episode"]["r"]
-                self.episode_rewards.append(r)
-                self.pbar.set_postfix(ep_reward=f"{r:.1f}", episodes=len(self.episode_rewards))
+                self.episode_results.append((self.num_timesteps, r))
+                self.pbar.set_postfix(ep_reward=f"{r:.1f}", episodes=len(self.episode_results))
         return True
 
     def _on_training_end(self):
@@ -70,7 +70,7 @@ def train_sb3(
     print(f"SB3 model saved: {save_path}")
 
     env.close()
-    return model, callback.episode_rewards
+    return model, callback.episode_results
 
 
 if __name__ == "__main__":

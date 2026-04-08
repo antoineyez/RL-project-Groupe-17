@@ -10,12 +10,13 @@ def plot_training_curves(csv_path="results/training_rewards.csv",
     df = pd.read_csv(csv_path)
     plt.figure(figsize=(10, 6))
     for (agent, seed), group in df.groupby(["agent", "seed"]):
-        rewards = group.sort_values("episode")["reward"].values
+        group = group.sort_values("timestep")
+        timesteps = group["timestep"].values
+        rewards = group["reward"].values
         window = min(10, len(rewards))
         smoothed = np.convolve(rewards, np.ones(window) / window, mode="valid")
-        episodes = np.arange(1, len(smoothed) + 1)
-        plt.plot(episodes, smoothed, label=f"{agent} seed={seed}")
-    plt.xlabel("Episode")
+        plt.plot(timesteps[:len(smoothed)], smoothed, label=f"{agent} seed={seed}")
+    plt.xlabel("Timesteps")
     plt.ylabel("Reward (rolling mean)")
     plt.title("Training curves")
     plt.legend()
