@@ -5,6 +5,7 @@ import numpy as np
 import highway_env  # noqa: F401
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 from tqdm import tqdm
 
@@ -15,7 +16,7 @@ def make_env():
     env = gym.make(SHARED_CORE_ENV_ID, render_mode=None)
     env.unwrapped.configure(SHARED_CORE_CONFIG)
     env.reset()
-    return env
+    return Monitor(env)
 
 
 class RewardLoggerCallback(BaseCallback):

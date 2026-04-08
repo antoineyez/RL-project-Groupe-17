@@ -3,7 +3,7 @@
 #SBATCH --job-name=rl-training
 #SBATCH --nodes=1
 #SBATCH --partition=gpu_prod_long
-#SBATCH --time=02:00:00
+#SBATCH --time=05:00:00
 #SBATCH --output=logs/slurm-training-%j.out
 #SBATCH --error=logs/slurm-training-%j.err
 
@@ -18,8 +18,8 @@ mkdir -p logs results/checkpoints results/figures results/videos
 
 # Default values, overridable via environment variables
 SEEDS=${SEEDS:-3}
-EPISODES=${EPISODES:-200}
-SB3_TIMESTEPS=${SB3_TIMESTEPS:-6000}
+EPISODES=${EPISODES:-700}
+SB3_TIMESTEPS=${SB3_TIMESTEPS:-20000}
 EVAL_EPISODES=${EVAL_EPISODES:-50}
 
 echo "Config: seeds=$SEEDS, episodes=$EPISODES, sb3_timesteps=$SB3_TIMESTEPS, eval_episodes=$EVAL_EPISODES"
