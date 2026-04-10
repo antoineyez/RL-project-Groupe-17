@@ -3,7 +3,7 @@
 #SBATCH --job-name=rl-training
 #SBATCH --nodes=1
 #SBATCH --partition=gpu_prod_long
-#SBATCH --time=05:00:00
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/slurm-training-%j.out
 #SBATCH --error=logs/slurm-training-%j.err
 
