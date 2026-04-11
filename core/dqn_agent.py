@@ -21,17 +21,48 @@ def set_seed(seed: int):
 
 
 class ReplayBuffer:
-    """Buffer de replay pour stocker les transitions."""
+    """Buffer de replay pour stocker les transitions de l'agent.
+    
+    Utilise une queue à double entrée (deque) qui supprime automatiquement
+    les plus anciennes transitions lorsque la capacité maximale est atteinte.
+    """
 
     def __init__(self, capacity: int = 50_000):
+        """Initialise le buffer.
+
+        Args:
+            capacity (int): Le nombre maximum de transitions à conserver en mémoire.
+        """
         self.buffer = deque(maxlen=capacity)
 
     def push(self, state, action, reward, next_state, done):
+        """Ajoute une nouvelle transition (expérience) à la mémoire.
+
+        Args:
+            state (np.ndarray): L'état observé avant l'action.
+            action (int): L'action choisie par l'agent.
+            reward (float): La récompense obtenue suite à l'action.
+            next_state (np.ndarray): Le nouvel état observé après l'action.
+            done (bool): Indique si l'épisode s'est terminé après cette action.
+        """
         self.buffer.append((state, action, reward, next_state, done))
 
     def sample(self, batch_size: int):
+        """Tire un échantillon aléatoire de transitions pour l'entraînement.
+
+        Le tirage aléatoire permet de casser la corrélation temporelle entre
+        les expériences consécutives, stabilisant ainsi l'apprentissage.
+
+        Args:
+            batch_size (int): Le nombre de transitions à tirer.
+
+        Returns:
+            tuple: Un tuple (states, actions, rewards, next_states, dones)
+                   convertis en tableaux NumPy, prêts à être envoyés à PyTorch.
+        """
         batch = random.sample(self.buffer, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
+        
         return (
             np.array(states),
             np.array(actions),
@@ -41,11 +72,16 @@ class ReplayBuffer:
         )
 
     def __len__(self):
+        """Retourne le nombre actuel de transitions stockées."""
         return len(self.buffer)
 
 
 class DQNAgent:
-    """Agent DQN maison."""
+    """Agent DQN maison.
+    
+    Implémente l'algorithme Deep Q-Network avec un réseau principal (policy_net)
+    et un réseau cible (target_net) pour stabiliser l'apprentissage.
+    """
 
     def __init__(
         self,
@@ -60,6 +96,20 @@ class DQNAgent:
         target_update_freq: int = 500,
         buffer_capacity: int = 50_000,
     ):
+        """Initialise l'agent DQN.
+        
+        Args:
+            obs_shape (tuple): La forme de l'espace d'observation (état).
+            n_actions (int): Le nombre d'actions discrètes possibles.
+            lr (float): Le taux d'apprentissage (learning rate) pour l'optimiseur Adam.
+            gamma (float): Le discount factor de l'équation de Bellman (futur vs présent).
+            epsilon_start (float): La valeur initiale de la probabilité d'exploration.
+            epsilon_end (float): La valeur finale minimale de la probabilité d'exploration.
+            epsilon_decay (int): Le nombre de pas sur lequel epsilon décroît linéairement.
+            batch_size (int): La taille des batchs tirés du replay buffer pour l'entraînement.
+            target_update_freq (int): La fréquence (en pas) de copie des poids vers le réseau cible.
+            buffer_capacity (int): La taille maximale de la mémoire (replay buffer).
+        """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.n_actions = n_actions
         self.gamma = gamma
@@ -83,10 +133,24 @@ class DQNAgent:
 
     @property
     def epsilon(self) -> float:
+        """Calcule la valeur actuelle d'epsilon (exploration) avec une décroissance linéaire.
+        
+        Returns:
+            float: La probabilité actuelle de prendre une action aléatoire au lieu d'exploiter le réseau.
+        """
         return self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
             max(0, 1 - self.steps_done / self.epsilon_decay)
 
     def select_action(self, state: np.ndarray, training: bool = True) -> int:
+        """Sélectionne une action en utilisant la politique d'exploration epsilon-greedy.
+        Args:
+            state (np.ndarray): L'état actuel de l'environnement.
+            training (bool): Si True, s'autorise l'exploration aléatoire (epsilon).
+                             Si False, agit toujours de manière gloutonne (la meilleure action connue).
+
+        Returns:
+            int: L'indice de l'action choisie.
+        """
         if training and random.random() < self.epsilon:
             return random.randrange(self.n_actions)
 
@@ -96,6 +160,18 @@ class DQNAgent:
             return q_values.argmax(dim=1).item()
 
     def train_step(self):
+        """
+
+        Effectue une étape d'optimisation (rétropropagation) des poids du réseau :
+
+        1. Tire un batch aléatoire de souvenirs.
+        2. Calcule les valeurs Q prédites pour l'état actuel et l'action prise.
+        3. Calcule la valeur Cible avec l'équation de Bellman via le Target Net.
+        4. Fait une descente de gradient avec la perte (MSE).
+        5. Met à jour périodiquement le réseau cible (Target Net).
+
+        """
+
         if len(self.replay_buffer) < self.batch_size:
             return
 
@@ -136,7 +212,23 @@ class DQNAgent:
 
 def train_dqn(env, agent: DQNAgent, total_timesteps: int = 20_000, verbose: bool = True,
               checkpoint_path: str = None, checkpoint_every_steps: int = 2000):
-    """Boucle d'entraînement DQN. Returns list of (timestep, reward) tuples."""
+    """Boucle d'entraînement principale du DQN interagissant avec l'environnement.
+    
+    L'agent effectue des pas dans l'environnement, sauvegarde ses expériences,
+    et déclenche une phase d'entraînement à chaque action prise.
+
+    Args:
+        env (gym.Env): L'environnement avec lequel interagir (ici, HighwayEnv).
+        agent (DQNAgent): L'agent contenant les réseaux de neurones (cerveau) et la politique.
+        total_timesteps (int): Le nombre total d'actions/étapes d'entraînement.
+        verbose (bool): Afficher ou non la barre de progression (tqdm).
+        checkpoint_path (str): Le chemin de sauvegarde pour les états du réseau.
+        checkpoint_every_steps (int): Sauvegarder le modèle tous les N pas de temps.
+
+    Returns:
+        list: Une liste de tuples (nombre de pas total effectué, récompense de l'épisode).
+              Très utile pour tracer vos courbes d'apprentissage par la suite.
+    """
     episode_results = []
     steps_done = 0
     last_checkpoint = 0
