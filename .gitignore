@@ -209,3 +209,4 @@ __marimo__/
 # results
 results*/**/*
 **/.DS_Store
+reports*/**/*
