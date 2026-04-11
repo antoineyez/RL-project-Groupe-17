@@ -209,6 +209,23 @@ class DQNAgent:
         self.policy_net.load_state_dict(torch.load(path, weights_only=True))
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
+    def select_actions(self, observations, training=True):
+        """Version turbo pour traiter plusieurs environnements d'un coup de manière indépendante."""
+        state = torch.FloatTensor(observations).to(self.device)
+        
+        with torch.no_grad():
+            q_values = self.policy_net(state)
+            actions = q_values.max(1)[1].cpu().numpy() # On récupère l'index de la meilleure action pour chaque ligne
+            
+        # Gestion de l'Epsilon-Greedy indépendante pour CHAQUE environnement du batch
+        if training:
+            # Tire un nombre aléatoire par environnement (pour ne pas explorer l'epsilon surtout ou rien)
+            random_mask = np.random.rand(len(observations)) < self.epsilon
+            if random_mask.any():
+                # Remplace seulement ceux qui tombent sous l'epsilon par des actions aléatoires
+                actions[random_mask] = np.random.randint(0, self.n_actions, size=random_mask.sum())
+            
+        return actions
 
 def train_dqn(env, agent: DQNAgent, total_timesteps: int = 20_000, verbose: bool = True,
               checkpoint_path: str = None, checkpoint_every_steps: int = 2000):
@@ -229,6 +246,9 @@ def train_dqn(env, agent: DQNAgent, total_timesteps: int = 20_000, verbose: bool
         list: Une liste de tuples (nombre de pas total effectué, récompense de l'épisode).
               Très utile pour tracer vos courbes d'apprentissage par la suite.
     """
+    if verbose:
+        print(f"\n--- Début de l'entraînement DQN sur l'appareil : {str(agent.device).upper()} ---")
+        
     episode_results = []
     steps_done = 0
     last_checkpoint = 0
@@ -263,3 +283,64 @@ def train_dqn(env, agent: DQNAgent, total_timesteps: int = 20_000, verbose: bool
 
     pbar.close()
     return episode_results
+
+
+def train_dqn_parallel(vec_env, agent: DQNAgent, total_timesteps: int = 20_000, verbose: bool = True,
+                       checkpoint_path: str = None, checkpoint_every_steps: int = 2000):
+    """Boucle d'entraînement DQN TURBO utilisant les environnements vectorisés (VecEnv).
+    
+    Exploite la parallélisation CPU pour récolter l'expérience beaucoup plus vite, 
+    et traite des batchs (GPU/CPU) via `select_actions`.
+    """
+    if verbose:
+        print(f"\n--- Début de l'entraînement DQN PARALLÈLE sur l'appareil : {str(agent.device).upper()} ---")
+
+    episode_results = []
+    steps_done = 0
+    last_checkpoint = 0
+    num_envs = vec_env.num_envs
+    
+    pbar = tqdm(total=total_timesteps, desc="DQN Parallel Training", disable=not verbose)
+    
+    obs = vec_env.reset()
+    
+    while steps_done < total_timesteps:
+        # 1. Prédiction des actions pour TOUS les environnements d'un coup (GPU batched)
+        actions = agent.select_actions(obs, training=True)
+        
+        # 2. Exécution dans les environnements en parallèle (CPU multi-processing)
+        next_obs, rewards, dones, infos = vec_env.step(actions)
+        
+        # 3. Stockage des N expériences dans le buffer
+        for i in range(num_envs):
+            # Traitement d'un détail de l'auto-reset des VecEnv: la VRAIE obs d'arrivée est dans info
+            real_next_obs = infos[i]['terminal_observation'] if dones[i] and 'terminal_observation' in infos[i] else next_obs[i]
+            
+            agent.replay_buffer.push(obs[i], actions[i], rewards[i], real_next_obs, dones[i])
+            
+            # 4. Si une des voitures a fini sa partie, on la sauvegarde pour nos statistiques
+            if dones[i] and "episode" in infos[i]:
+                episode_results.append((steps_done, infos[i]["episode"]["r"]))
+                
+        # 5. On fait l'apprentissage: N pas d'environnement génèrent N expériences, 
+        # on lance donc N train_steps pour équilibrer la vitesse.
+        for _ in range(num_envs):
+            agent.train_step()
+            
+        obs = next_obs
+        steps_done += num_envs
+        pbar.update(num_envs)
+        
+        # Mise à jour des stats dans la console
+        if episode_results:
+            avg = np.mean([r for _, r in episode_results[-10:]])
+            pbar.set_postfix(avg10=f"{avg:.1f}", eps=f"{agent.epsilon:.3f}", ep=len(episode_results))
+
+        if checkpoint_path and steps_done - last_checkpoint >= checkpoint_every_steps:
+            agent.save(checkpoint_path)
+            last_checkpoint = steps_done
+
+    pbar.close()
+    return episode_results
+
+

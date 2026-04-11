@@ -68,6 +68,10 @@ def record(select_action_fn, save_dir: str, name_prefix: str, n_episodes: int = 
     os.makedirs(save_dir, exist_ok=True)
     env = gym.make(SHARED_CORE_ENV_ID, render_mode="rgb_array")
     env.unwrapped.configure(SHARED_CORE_CONFIG)
+    
+    # Accélère la vidéo (par défaut highway-env la met à 2 fps ce qui donne un effet de "lag")
+    env.metadata["render_fps"] = 5
+    
     env = gym.wrappers.RecordVideo(env, save_dir, name_prefix=name_prefix,
                                    episode_trigger=lambda _: True)
 

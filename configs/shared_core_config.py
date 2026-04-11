@@ -21,7 +21,7 @@ SHARED_CORE_CONFIG = {
     "initial_lane_id": None,
     "duration": 30,
     "ego_spacing": 2,
-    "vehicles_density": 1.0,
+    "vehicles_density": 1,
     "collision_reward": -1.5,
     "right_lane_reward": 0.0,
     "high_speed_reward": 0.7,

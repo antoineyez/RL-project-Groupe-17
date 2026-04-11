@@ -1,12 +1,12 @@
 """Training via Stable-Baselines3 DQN."""
-
+import os
 import gymnasium as gym
 import numpy as np
 import highway_env  # noqa: F401
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from tqdm import tqdm
 
 from configs.shared_core_config import SHARED_CORE_CONFIG, SHARED_CORE_ENV_ID
@@ -27,7 +27,8 @@ class RewardLoggerCallback(BaseCallback):
         self.pbar = tqdm(total=total_timesteps, desc="SB3 Training")
 
     def _on_step(self):
-        self.pbar.update(1)
+        num_envs = self.training_env.num_envs if hasattr(self.training_env, 'num_envs') else 1
+        self.pbar.update(num_envs)
         infos = self.locals.get("infos", [])
         for info in infos:
             if "episode" in info:
@@ -46,7 +47,8 @@ def train_sb3(
     save_path: str = "results/checkpoints/sb3_dqn",
 ):
     """Train a DQN agent via Stable-Baselines3. Returns (model, episode_rewards)."""
-    env = DummyVecEnv([make_env])
+    num_envs = os.cpu_count() or 4
+    env = SubprocVecEnv([make_env for _ in range(num_envs)])
 
     model = DQN(
         "MlpPolicy",
@@ -62,6 +64,8 @@ def train_sb3(
         verbose=0,
         seed=seed,
     )
+
+    print(f"\n--- Début de l'entraînement SB3 sur l'appareil : {str(model.device).upper()} ---")
 
     callback = RewardLoggerCallback(total_timesteps)
     model.learn(total_timesteps=total_timesteps, callback=callback)
