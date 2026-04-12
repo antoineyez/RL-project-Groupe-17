@@ -130,6 +130,7 @@ class DQNAgent:
         self.replay_buffer = ReplayBuffer(buffer_capacity)
 
         self.training_losses = []
+        self.mean_q_values = []
 
     @property
     def epsilon(self) -> float:
@@ -198,6 +199,7 @@ class DQNAgent:
 
         self.steps_done += 1
         self.training_losses.append(loss.item())
+        self.mean_q_values.append(next_q_values.mean().item())
 
         if self.steps_done % self.target_update_freq == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
