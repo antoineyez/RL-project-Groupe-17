@@ -1,0 +1,5 @@
+\babel@toc {french}{}\relax 
+\beamer@sectionintoc {1}{Environnement et Mod\'elisation}{3}{0}{1}
+\beamer@sectionintoc {2}{DQN : Algorithme et Impl\'ementation}{5}{0}{2}
+\beamer@sectionintoc {3}{R\'esultats et Comparaison}{7}{0}{3}
+\beamer@sectionintoc {4}{Extension et Conclusion}{12}{0}{4}
