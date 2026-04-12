@@ -46,7 +46,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-*.py.cover
+*.py.covee
 .hypothesis/
 .pytest_cache/
 cover/
@@ -210,4 +210,3 @@ __marimo__/
 results/**/*
 results_distant/**/*
 **/.DS_Store
-reports*/**/*
