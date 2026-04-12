@@ -51,6 +51,7 @@ def train_sb3(
     model = DQN(
         "MlpPolicy",
         env,
+        policy_kwargs=dict(net_arch=[256, 256]),
         learning_rate=1e-3,
         buffer_size=50_000,
         learning_starts=1000,
