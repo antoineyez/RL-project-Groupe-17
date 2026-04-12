@@ -12,7 +12,7 @@ class DQNNetwork(nn.Module):
     généralement l'action avec la plus haute valeur Q.
     """
 
-    def __init__(self, obs_shape: tuple, n_actions: int, hidden_sizes: tuple = (256, 128)):
+    def __init__(self, obs_shape: tuple, n_actions: int, hidden_sizes: tuple = (256, 256)):
         """Initialise l'architecture du réseau de neurones.
 
         Args:

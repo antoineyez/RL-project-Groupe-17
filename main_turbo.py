@@ -59,17 +59,23 @@ def main():
     parser.add_argument("--eval-episodes", type=int, default=50, help="Evaluation episodes per seed")
     parser.add_argument("--render", action="store_true", help="Visual demo after training")
     parser.add_argument("--algo", type=str, default="both", choices=["dqn", "sb3", "both"], help="Algorithm to run")
+    parser.add_argument("--exp-suffix", type=str, default="", help="Suffix to append to CSV files")
     args = parser.parse_args()
 
     os.makedirs("results/checkpoints", exist_ok=True)
     os.makedirs("results/figures", exist_ok=True)
     os.makedirs("results/videos", exist_ok=True)
 
-    for csv_file in ["results/training_rewards.csv", "results/eval_results.csv"]:
-        if os.path.exists(csv_file):
-            os.remove(csv_file)
+    csv_suffix = f"_{args.exp_suffix}" if args.exp_suffix else ""
+    train_csv_path = f"results/training_rewards{csv_suffix}.csv"
+    eval_csv_path = f"results/eval_results{csv_suffix}.csv"
 
-    seed_list = list(range(42, 42 + args.seeds))
+    if args.algo == "both" and not args.exp_suffix:
+        for csv_file in [train_csv_path, eval_csv_path]:
+            if os.path.exists(csv_file):
+                os.remove(csv_file)
+
+    seed_list = list(range(52, 52 + args.seeds))
     all_training_curves = {}
     eval_results = {"DQN (ours)": {}, "SB3 DQN": {}}
     all_failures = {"DQN (ours)": [], "SB3 DQN": []}
@@ -109,7 +115,7 @@ def main():
                 lr=1e-3,
                 gamma=0.99,
                 epsilon_decay=int(args.timesteps * 0.5),
-                batch_size=64,
+                batch_size=128,
                 target_update_freq=200,
             )
             
@@ -121,7 +127,7 @@ def main():
 
             agent.save(checkpoint_path)
             all_training_curves[f"DQN seed={seed}"] = dqn_rewards
-            save_training_rewards_csv("DQN (ours)", seed, dqn_rewards)
+            save_training_rewards_csv("DQN (ours)", seed, dqn_rewards, path=train_csv_path)
 
             print(f"[DQN] Evaluating ({args.eval_episodes} episodes)...")
             eval_env = make_eval_env()
@@ -132,7 +138,7 @@ def main():
             eval_env.close()
             eval_results["DQN (ours)"][seed] = dqn_eval
             all_failures["DQN (ours)"].extend(dqn_failures)
-            save_eval_results_csv("DQN (ours)", seed, dqn_eval, dqn_failures)
+            save_eval_results_csv("DQN (ours)", seed, dqn_eval, dqn_failures, path=eval_csv_path)
 
             if best_dqn_agent is None or dqn_eval.mean() > max(
                 r.mean() for r in (eval_results["DQN (ours)"].values() or [np.array([0])])
@@ -149,7 +155,7 @@ def main():
             )
             if sb3_train_rewards:
                 all_training_curves[f"SB3 seed={seed}"] = sb3_train_rewards
-                save_training_rewards_csv("SB3 DQN", seed, sb3_train_rewards)
+                save_training_rewards_csv("SB3 DQN", seed, sb3_train_rewards, path=train_csv_path)
 
             print(f"[SB3] Evaluating ({args.eval_episodes} episodes)...")
             eval_env = make_eval_env()
@@ -160,7 +166,7 @@ def main():
             eval_env.close()
             eval_results["SB3 DQN"][seed] = sb3_eval
             all_failures["SB3 DQN"].extend(sb3_failures)
-            save_eval_results_csv("SB3 DQN", seed, sb3_eval, sb3_failures)
+            save_eval_results_csv("SB3 DQN", seed, sb3_eval, sb3_failures, path=eval_csv_path)
 
             if best_sb3_model is None or sb3_eval.mean() > max(
                 r.mean() for r in (eval_results["SB3 DQN"].values() or [np.array([0])])

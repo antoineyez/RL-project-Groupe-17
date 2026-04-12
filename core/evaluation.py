@@ -75,6 +75,8 @@ def print_comparison_table(results: dict):
     print(f"{'Agent':<25} {'Seed':<8} {'Mean':>8} {'Std':>8} {'Min':>8} {'Max':>8}")
     print("-" * 70)
     for agent_name, seed_results in results.items():
+        if not seed_results:  # Skip if the agent wasn't evaluated
+            continue
         all_rewards = []
         for seed, rewards in sorted(seed_results.items()):
             print(f"{agent_name:<25} {seed:<8} {rewards.mean():>8.2f} {rewards.std():>8.2f} "
