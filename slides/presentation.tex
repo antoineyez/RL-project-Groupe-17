@@ -166,7 +166,7 @@
             \textbf{R\'eseau (MLP)}
             \begin{itemize}
                 \item Entr\'ee : 50 (matrice aplatie)
-                \item Couches : $256 \to 128$ (ReLU)
+                \item Couches : $256 \to 256$ (ReLU)
                 \item Sortie : 5 Q-values
                 \item Gradient clipp\'e \`a 1.0
             \end{itemize}
@@ -193,13 +193,13 @@
             & \textbf{DQN (custom)} & \textbf{SB3 DQN} \\
             \midrule
             Timesteps & 40\,000 & 40\,000 \\
-            Seeds & 42, 43, 44 & 42, 43, 44 \\
+            Seeds & 52, 53, 54 & 52, 53, 54 \\
             Learning rate & $10^{-3}$ & $10^{-3}$ \\
             Buffer & 50\,000 & 50\,000 \\
             Batch size & 64 & 64 \\
             Target update & 500 steps & 500 steps \\
             $\epsilon$ schedule & $1 \to 0.05$ sur 50\% & $1 \to 0.05$ sur 30\% \\
-            R\'eseau & 256-128 (custom) & \texttt{MlpPolicy} (SB3) \\
+            R\'eseau & MLP 256-256 & MLP 256-256 \\
             \bottomrule
         \end{tabular}
         }
@@ -217,15 +217,15 @@
 % ============================================================
 \begin{frame}{Courbes d'entra\^inement}
     \centering
-    \includegraphics[width=0.85\textwidth]{../results_distant_v2/figures/training_curves.png}
+    \includegraphics[width=0.85\textwidth]{../results_v3/figures/training_curves.png}
 
     \vspace{0.2cm}
-    {\small Moyenne $\pm$ \'ecart-type sur 3 seeds. Lissage par moyenne glissante (fenetre 10).}
+    {\small Moyenne $\pm$ \'ecart-type sur 3 seeds (architectures identiques 256-256). Lissage par moyenne glissante (fen\^etre 10).}
 
     \vspace{0.2cm}
     \begin{itemize}
-        \item Notre DQN converge en $\sim$5\,000 timesteps. SB3 en $\sim$20\,000.
-        \item Variance inter-seeds beaucoup plus faible pour notre DQN.
+        \item Notre DQN converge vite ($\sim$5k timesteps) mais reste bruit\'e (crashes).
+        \item SB3 d\'emarre plus lentement mais converge vers une politique \textbf{tr\`es stable}.
     \end{itemize}
 \end{frame}
 
@@ -239,21 +239,21 @@
             \toprule
             \textbf{Agent} & \textbf{Seed} & \textbf{Reward moy.} & \textbf{Std} & \textbf{Crashes} \\
             \midrule
-            DQN (custom) & 42 & 20.68 & 2.70 & 6/50 (12\%) \\
-            DQN (custom) & 43 & 20.33 & 2.60 & 2/50 (4\%) \\
-            DQN (custom) & 44 & 20.53 & 2.29 & 4/50 (8\%) \\
-            \textbf{DQN (custom)} & \textbf{total} & \textbf{20.51} & \textbf{2.54} & \textbf{12/150 (8\%)} \\
+            DQN (custom) & 52 & 19.81 & 4.52 & 9/50 (18\%) \\
+            DQN (custom) & 53 & 18.99 & 5.51 & 12/50 (24\%) \\
+            DQN (custom) & 54 & 20.76 & 3.44 & 8/50 (16\%) \\
+            \textbf{DQN (custom)} & \textbf{total} & \textbf{19.85} & \textbf{4.63} & \textbf{29/150 (19\%)} \\
             \midrule
-            SB3 DQN & 42 & 19.52 & 3.47 & 13/50 (26\%) \\
-            SB3 DQN & 43 & 16.11 & 6.00 & 22/50 (44\%) \\
-            SB3 DQN & 44 & 10.77 & 7.35 & 42/50 (84\%) \\
-            \textbf{SB3 DQN} & \textbf{total} & \textbf{15.47} & \textbf{6.85} & \textbf{77/150 (51\%)} \\
+            SB3 DQN & 52 & 20.45 & 0.00 & 0/50 (0\%) \\
+            SB3 DQN & 53 & 20.55 & 0.05 & 0/50 (0\%) \\
+            SB3 DQN & 54 & 20.45 & 0.00 & 0/50 (0\%) \\
+            \textbf{SB3 DQN} & \textbf{total} & \textbf{20.48} & \textbf{0.05} & \textbf{0/150 (0\%)} \\
             \bottomrule
         \end{tabular}
     \end{table}
 
     \vspace{0.2cm}
-    Notre DQN : reward sup\'erieure (+33\%), variance plus faible, et \textbf{6$\times$ moins de crashes}.
+    SB3 : reward l\'eg\`erement sup\'erieure (+3\%), variance quasi-nulle, et \textbf{0 crash} vs 19\% pour notre DQN.
 \end{frame}
 
 % ============================================================
@@ -262,31 +262,32 @@
 \begin{frame}{Analyse des modes d'\'echec}
     \begin{columns}
         \begin{column}{0.5\textwidth}
-            \textbf{Notre DQN (8\% de crashes)}
+            \textbf{Notre DQN (19\% de crashes)}
 
             \vspace{0.2cm}
             Deux patterns identifi\'es :
             \begin{itemize}
-                \item \textbf{Crash pr\'ecoce} (steps 3--9) : changement de voie dans une voie occup\'ee juste apr\`es le reset.
-                \item \textbf{Crash tardif} (steps 21--29) : collision en fin d'\'episode lors d'un changement de voie dans du trafic rapide.
+                \item \textbf{Crash pr\'ecoce} (steps 4--8) : changement de voie dans une voie occup\'ee juste apr\`es le reset. Reward tr\`es faible ($\sim$2--6).
+                \item \textbf{Crash tardif} (steps 19--30) : collision en fin d'\'episode dans du trafic dense. Reward proche du max ($\sim$20).
             \end{itemize}
         \end{column}
         \begin{column}{0.5\textwidth}
-            \textbf{SB3 DQN (51\% de crashes)}
+            \textbf{SB3 DQN (0\% de crashes)}
 
             \vspace{0.2cm}
-            Modes d'\'echec plus vari\'es :
+            Politique ultra-conservative :
             \begin{itemize}
-                \item Crashes \`a haute vitesse (jusqu'\`a 28 m/s)
-                \item Forte d\'ependance au seed : seed 44 $\Rightarrow$ \textbf{84\% de crashes}
-                \item Politique fragile : fonctionne sur certaines configs de trafic, pas d'autres
+                \item Reward quasi-constante ($\sim$20.45)
+                \item Z\'ero crash sur 150 \'episodes
+                \item Probablement : vitesse constante, pas de changement de voie
+                \item S\^ur mais ne maximise pas la reward (pics \`a 24+ pour notre DQN)
             \end{itemize}
         \end{column}
     \end{columns}
 
     \vspace{0.3cm}
-    \begin{block}{Hypoth\`ese}
-        SB3 souffre de son \texttt{learning\_starts=1000} (pas d'apprentissage pendant les 1000 premiers pas) et d'un schedule d'exploration plus court (30\% vs 50\%).
+    \begin{block}{Compromis s\'ecurit\'e vs performance}
+        SB3 privil\'egie la s\'ecurit\'e (0 crash) au d\'etriment du reward maximal. Notre DQN tente des man\oe uvres risqu\'ees qui parfois \'echouent mais atteignent des rewards plus \'elev\'ees.
     \end{block}
 \end{frame}
 
@@ -301,7 +302,7 @@
         \item \textbf{$\gamma = 0.99$ :} horizon lointain n\'ecessaire pour anticiper le trafic. Un $\gamma$ plus faible rendrait l'agent trop myope (ne planifie pas les d\'epassements).
 
         \vspace{0.2cm}
-        \item \textbf{MLP 256-128 :} suffisant pour un espace d'\'etat de dimension 50. Un r\'eseau plus grand risquerait l'overfitting sans apporter de capacit\'e de repr\'esentation utile.
+        \item \textbf{MLP 256-256 identique :} m\^eme architecture pour les deux agents. La v2 utilisait le \texttt{MlpPolicy} par d\'efaut (64-64) pour SB3 $\Rightarrow$ comparaison biais\'ee. La v3 corrige ce probl\`eme.
 
         \vspace{0.2cm}
         \item \textbf{Sauvegarde incr\'ementale (CSV) :} r\'esultats enregistr\'es apr\`es chaque seed. A sauv\'e nos donn\'ees quand le premier job cluster a \'et\'e tu\'e par SLURM.
@@ -343,14 +344,14 @@
 \begin{frame}{Conclusion}
     \textbf{R\'esultats principaux :}
     \begin{itemize}
-        \item Notre DQN custom \textbf{surpasse SB3} : reward moyenne 20.51 vs 15.47, taux de crash 8\% vs 51\%.
-        \item Convergence plus rapide ($\sim$5k vs $\sim$20k timesteps) et plus reproductible (faible variance inter-seeds).
+        \item Avec des architectures identiques (256-256), \textbf{SB3 surpasse notre DQN} : reward 20.48 vs 19.85, 0\% vs 19\% de crashes.
+        \item SB3 apprend une politique conservatrice tr\`es stable. Notre DQN est plus agressif (pics \`a 24+) mais moins fiable.
     \end{itemize}
 
     \vspace{0.3cm}
     \textbf{Le\c{c}ons apprises :}
     \begin{itemize}
-        \item L'importance d'une comparaison \'equitable (m\^eme unit\'e, m\^eme config).
+        \item L'importance d'une comparaison \'equitable : m\^eme architecture, m\^emes timesteps, m\^emes seeds. La v2 (architectures diff\'erentes) donnait des conclusions \textbf{oppos\'ees}.
         \item La robustesse de l'infrastructure (sauvegardes incr\'ementales, gestion du cluster).
         \item Les bugs silencieux (Monitor wrapper, observation space) peuvent invalider des r\'esultats sans signal d'erreur.
     \end{itemize}
@@ -359,7 +360,7 @@
     \textbf{Perspectives :}
     \begin{itemize}
         \item Extension (Double-DQN, PER, Safety-RL)
-        \item Tuning d'hyperparamètres (exploration schedule, architecture)
+        \item R\'eduire le taux de crash de notre DQN (reward shaping, exploration)
         \item G\'en\'eralisation \`a d'autres environnements (intersection, rond-point)
     \end{itemize}
 \end{frame}

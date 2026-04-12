@@ -36,10 +36,12 @@ Both agents share the same core hyperparameters for a fair comparison:
     \item Learning rate: $10^{-3}$, discount factor $\gamma = 0.99$, batch size 64
     \item Replay buffer: 50{,}000 transitions, target network update every 500 steps
     \item Epsilon: linear decay from 1.0 to 0.05 over 50\% of training (DQN) / 30\% (SB3)
-    \item Network: MLP with layers $50 \to 256 \to 128 \to 5$ (our DQN); SB3 uses its default \texttt{MlpPolicy}
+    \item Network: MLP $50 \to 256 \to 256 \to 5$ for both agents (we set SB3's \texttt{policy\_kwargs=dict(net\_arch=[256, 256])} to match our architecture exactly)
 \end{itemize}
 
-I ran experiments on the DCE cluster (NVIDIA GTX 1080 Ti). A first attempt with 3 seeds was killed by SLURM after exceeding the 5-hour time limit, having completed only seed 42 and 10\% of seed 43's DQN training. The incremental CSV saving ensured no data was lost for the completed seed. This led us to switch to the \texttt{gpu\_prod\_long} partition (48h limit), where the full run---40{,}000 timesteps $\times$ 3 seeds (42, 43, 44) $\times$ 2 agents---completed successfully.
+An earlier run (v2) used a smaller default \texttt{MlpPolicy} ($64 \to 64$) for SB3 while our DQN used $256 \to 128$, making the comparison unfair. In the final run (v3), we matched both networks to $256 \to 256$ and used seeds 52, 53, 54.
+
+I ran experiments on the DCE cluster (NVIDIA GTX 1080 Ti). A first attempt with 3 seeds was killed by SLURM after exceeding the 5-hour time limit. The incremental CSV saving ensured no data was lost for the completed seed. This led us to switch to the \texttt{gpu\_prod\_long} partition (48h limit), where the full run---40{,}000 timesteps $\times$ 3 seeds (52, 53, 54) $\times$ 2 agents---completed successfully.
 
 \section{Results and Analysis}
 
@@ -49,16 +51,16 @@ Figure~\ref{fig:training} shows the training curves averaged across 3 seeds, wit
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.85\textwidth]{../results_distant_v2/figures/training_curves.png}
-    \caption{Training curves (mean $\pm$ std across seeds 42, 43, 44), 40{,}000 timesteps.}
+    \includegraphics[width=0.85\textwidth]{../../results_v3/figures/training_curves.png}
+    \caption{Training curves (mean $\pm$ std across seeds 52, 53, 54), 40{,}000 timesteps. Both agents use identical $256 \times 256$ MLP architectures.}
     \label{fig:training}
 \end{figure}
 
 Key observations:
 \begin{itemize}
-    \item Our DQN reaches high reward levels ($\sim$17--20) within the first 5{,}000 timesteps, while SB3 takes roughly 20{,}000--25{,}000 timesteps to reach comparable performance. This is likely because SB3 delays learning for the first 1{,}000 steps (\texttt{learning\_starts} parameter) and uses a more conservative exploration schedule.
-    \item Our DQN shows tight variance across seeds (narrow shaded region), indicating \textbf{robust and reproducible} learning. SB3's variance is much wider, especially between 10{,}000 and 30{,}000 timesteps, reflecting inconsistent learning across seeds.
-    \item Both agents converge toward similar performance ($\sim$20) by the end of training, but SB3 remains noisier.
+    \item Our DQN reaches high reward levels quickly within the first $\sim$5{,}000 timesteps but continues to exhibit noisy, high-variance training throughout, with frequent reward drops caused by crash episodes.
+    \item SB3's learning is delayed by its \texttt{learning\_starts=1000} parameter, but once it begins learning, it converges to a very \textbf{stable and consistent} policy with near-zero variance across seeds.
+    \item Both agents converge toward similar mean performance ($\sim$20) by the end of training, but SB3's final policy is significantly more stable.
 \end{itemize}
 
 \subsection{Evaluation}
@@ -73,30 +75,30 @@ Table~\ref{tab:eval} summarizes the evaluation results over 50 episodes per seed
         \toprule
         Agent & Seed & Mean Reward & Std & Crashes & Crash Rate \\
         \midrule
-        DQN (ours) & 42 & 20.68 & 2.70 & 6/50 & 12\% \\
-        DQN (ours) & 43 & 20.33 & 2.60 & 2/50 & 4\% \\
-        DQN (ours) & 44 & 20.53 & 2.29 & 4/50 & 8\% \\
-        \textbf{DQN (ours)} & \textbf{all} & \textbf{20.51} & \textbf{2.54} & \textbf{12/150} & \textbf{8\%} \\
+        DQN (ours) & 52 & 19.81 & 4.52 & 9/50 & 18\% \\
+        DQN (ours) & 53 & 18.99 & 5.51 & 12/50 & 24\% \\
+        DQN (ours) & 54 & 20.76 & 3.44 & 8/50 & 16\% \\
+        \textbf{DQN (ours)} & \textbf{all} & \textbf{19.85} & \textbf{4.63} & \textbf{29/150} & \textbf{19\%} \\
         \midrule
-        SB3 DQN & 42 & 19.52 & 3.47 & 13/50 & 26\% \\
-        SB3 DQN & 43 & 16.11 & 6.00 & 22/50 & 44\% \\
-        SB3 DQN & 44 & 10.77 & 7.35 & 42/50 & 84\% \\
-        \textbf{SB3 DQN} & \textbf{all} & \textbf{15.47} & \textbf{6.85} & \textbf{77/150} & \textbf{51\%} \\
+        SB3 DQN & 52 & 20.45 & 0.00 & 0/50 & 0\% \\
+        SB3 DQN & 53 & 20.55 & 0.05 & 0/50 & 0\% \\
+        SB3 DQN & 54 & 20.45 & 0.00 & 0/50 & 0\% \\
+        \textbf{SB3 DQN} & \textbf{all} & \textbf{20.48} & \textbf{0.05} & \textbf{0/150} & \textbf{0\%} \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The results are striking. Our DQN significantly outperforms SB3 on all metrics: higher mean reward (20.51 vs 15.47), lower variance (2.54 vs 6.85), and dramatically fewer crashes (8\% vs 51\%). Notably, SB3's performance is highly seed-dependent---seed 42 performs reasonably (26\% crashes) while seed 44 crashes in 84\% of episodes, suggesting that SB3's learned policy is fragile and depends heavily on the exploration trajectory during training.
+With matched architectures, SB3 now outperforms our DQN on stability metrics: higher mean reward (20.48 vs 19.85), dramatically lower variance (0.05 vs 4.63), and \textbf{zero crashes} across all 150 evaluation episodes. SB3 learned a very conservative, safe policy that consistently achieves moderate reward without ever colliding. Our DQN achieves higher peak rewards (up to 24.85) but at the cost of a 19\% crash rate and high variance across seeds. This reverses our earlier results (v2), where SB3 used a smaller $64 \times 64$ network and performed significantly worse---highlighting how \textbf{architecture parity is essential for fair comparison}.
 
 \subsection{Failure Analysis}
 
-Crash episodes in our DQN follow two patterns:
+Our DQN's 29 crash episodes follow two patterns:
 \begin{itemize}
-    \item \textbf{Early crashes} (steps 3--9, e.g., reward 6.56 at step 8): the agent attempts a lane change immediately after reset into an occupied lane. These represent rare but catastrophic misjudgments of the initial traffic configuration.
-    \item \textbf{Late crashes} (steps 21--29, e.g., reward 19.51 at step 25): the agent survives most of the episode but collides near the end, typically during a lane change into fast-moving traffic. The crash speed ($\sim$13--19 m/s) suggests these are mid-maneuver collisions where a faster vehicle in the target lane caught up during the lane change.
+    \item \textbf{Early crashes} (steps 4--8, e.g., reward 2.16 at step 4): the agent attempts a lane change immediately after reset into an occupied lane. These represent catastrophic misjudgments of the initial traffic configuration and produce very low rewards.
+    \item \textbf{Late crashes} (steps 19--30, e.g., reward 20.97 at step 30): the agent survives most of the episode but collides near the end, typically during a lane change in dense traffic. These episodes still accumulate a near-full reward before the crash.
 \end{itemize}
 
-SB3's failure modes are more diverse and severe. Many crashes occur mid-episode at high speeds (up to 28 m/s), and for seed 44, the agent appears to have learned an unstable policy that fails in the majority of traffic configurations.
+SB3's policy, by contrast, exhibits \textbf{zero crashes}. Its near-constant reward of $\sim$20.45 suggests it learned a highly conservative strategy---likely maintaining a steady speed and avoiding lane changes entirely. While safe, this policy never reaches the higher rewards (22--25) that our DQN occasionally achieves through more aggressive driving.
 
 \section{What Worked and What Failed}
 
@@ -104,23 +106,24 @@ SB3's failure modes are more diverse and severe. Many crashes occur mid-episode 
 \begin{itemize}
     \item The timestep-based unification made the comparison genuinely fair and the training curves directly readable on the same x-axis.
     \item Incremental CSV saving paid off immediately when our first cluster job timed out. Without it, 2+ hours of compute would have been lost entirely.
-    \item Our from-scratch DQN significantly outperforms SB3's optimized implementation on this benchmark, which validates both the implementation and the hyperparameter choices.
+    \item Matching network architectures (v2 $\to$ v3) was critical: SB3's default $64 \times 64$ \texttt{MlpPolicy} gave misleadingly poor results. Once we set both agents to $256 \times 256$, SB3 demonstrated its strength---its carefully tuned training loop produces more stable policies than our from-scratch implementation.
 \end{itemize}
 
 \textbf{What failed:}
 \begin{itemize}
-    \item \textbf{SB3 reward logging}: the \texttt{RewardLoggerCallback} silently produced empty lists because the environment was not wrapped in a \texttt{Monitor}. This went undetected until we noticed the SB3 training curve was missing from our first plots. The fix was a single line (\texttt{Monitor(env)}).
-    \item \textbf{Compute budget estimation}: I underestimated how long 40{,}000 timesteps $\times$ 3 seeds would take on the cluster ($\sim$14 hours), leading to the first job being killed at the SLURM time limit. This was solved by switching to the \texttt{gpu\_prod\_long} partition (48h limit).
+    \item \textbf{Unfair architecture comparison (v2):} our initial results showed our DQN ``outperforming'' SB3, but SB3 was using a network $4\times$ smaller. This is a cautionary tale about controlling all variables in ML experiments.
+    \item \textbf{SB3 reward logging}: the \texttt{RewardLoggerCallback} silently produced empty lists because the environment was not wrapped in a \texttt{Monitor}. The fix was a single line (\texttt{Monitor(env)}).
+    \item \textbf{Compute budget estimation}: I underestimated how long 40{,}000 timesteps $\times$ 3 seeds would take on the cluster ($\sim$14 hours), leading to the first job being killed at the SLURM time limit.
     \item \textbf{Observation space bug}: SB3's \texttt{DummyVecEnv} reads the observation space at construction time, before \texttt{configure()} takes effect. The fix was to call \texttt{env.reset()} after \texttt{configure()} so the observation space updates from $(5, 5)$ to $(10, 5)$.
 \end{itemize}
 
 \section{Limitations}
 
 \begin{itemize}
-    \item \textbf{No hyperparameter tuning} was performed. The learning rate, network architecture, epsilon schedule, and buffer size were set to reasonable defaults without systematic optimization. SB3's poor performance may partly be due to its \texttt{learning\_starts=1000} and \texttt{exploration\_fraction=0.3} settings, which could be suboptimal for this environment.
+    \item \textbf{No hyperparameter tuning} was performed. Our DQN's 19\% crash rate could likely be reduced by tuning the exploration schedule or adding safety-oriented reward shaping. SB3 benefits from its well-tuned training loop (gradient clipping, learning rate scheduling, etc.) which our implementation lacks.
+    \item \textbf{SB3's conservative policy}: SB3 achieves zero crashes but with near-constant reward ($\sim$20.45), suggesting it avoids lane changes entirely. A more nuanced analysis would require logging per-step actions to confirm this hypothesis.
     \item The \textbf{extension task} has not yet been completed. Future work could explore Double-DQN and Prioritized Experience Replay as natural improvements to the current DQN implementation.
     \item The failure analysis is qualitative. A more rigorous approach would involve recording the full observation trajectory leading to each crash to identify systematic failure patterns.
-    \item While 3 seeds is the minimum required, more seeds (e.g., 5--10) would provide tighter confidence intervals, especially for SB3 which shows high seed-to-seed variance.
 \end{itemize}
 
 \end{document}
