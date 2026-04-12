@@ -91,82 +91,90 @@ def main():
 
     print(f"Environment: {SHARED_CORE_ENV_ID}")
     print(f"Observation: {obs_shape} | Actions: {n_actions}")
-    print(f"Seeds: {seed_list} | Timesteps: {args.timesteps}")
+    print(f"Timesteps: {args.timesteps}")
     print(f"Evaluation: {args.eval_episodes} episodes per seed\n")
 
     # ── Training and evaluation loop ──
-    for seed in seed_list:
-        print(f"\n{'='*60}")
-        print(f"  SEED {seed}")
-        print(f"{'='*60}")
+    train_seed = seed_list[0]
+    eval_seeds = [train_seed + 1, train_seed + 2, train_seed + 3]
 
-        # --- DQN (ours) ---
-        if args.algo in ["both", "dqn"]:
-            print(f"\n[DQN PARALLEL] Training ({args.timesteps} timesteps)...")
-            set_seed(seed)
-            num_envs = os.cpu_count() or 4
-            # Création de multiples environnements pour DQNAgent
-            train_env = SubprocVecEnv([sb3_make_env for _ in range(num_envs)])
-            
-            checkpoint_path = f"results/checkpoints/dqn_seed{seed}.pt"
-            agent = DQNAgent(
-                obs_shape=obs_shape,
-                n_actions=n_actions,
-                lr=1e-3,
-                gamma=0.99,
-                epsilon_decay=int(args.timesteps * 0.5),
-                batch_size=128,
-                target_update_freq=200,
-            )
-            
-            dqn_rewards = train_dqn_parallel(
-                train_env, agent, total_timesteps=args.timesteps, verbose=True,
-                checkpoint_path=checkpoint_path, checkpoint_every_steps=2000,
-            )
-            train_env.close()
+    print(f"\n{'='*60}")
+    print(f"  TRAINING ON SEED {train_seed}")
+    print(f"  EVALUATING ON SEEDS {eval_seeds}")
+    print(f"{'='*60}")
 
-            agent.save(checkpoint_path)
-            all_training_curves[f"DQN seed={seed}"] = dqn_rewards
-            save_training_rewards_csv("DQN (ours)", seed, dqn_rewards, path=train_csv_path)
+    # --- DQN (ours) ---
+    if args.algo in ["both", "dqn"]:
+        print(f"\n[DQN PARALLEL] Training ({args.timesteps} timesteps)...")
+        set_seed(train_seed)
+        num_envs = os.cpu_count() or 4
+        # Création de multiples environnements pour DQNAgent
+        train_env = SubprocVecEnv([sb3_make_env for _ in range(num_envs)])
+        
+        checkpoint_path = f"results/checkpoints/dqn_seed{train_seed}.pt"
+        agent = DQNAgent(
+            obs_shape=obs_shape,
+            n_actions=n_actions,
+            lr=1e-3,
+            gamma=0.99,
+            epsilon_decay=int(args.timesteps * 0.5),
+            batch_size=128,
+            target_update_freq=200,
+        )
+        
+        dqn_rewards = train_dqn_parallel(
+            train_env, agent, total_timesteps=args.timesteps, verbose=True,
+            checkpoint_path=checkpoint_path, checkpoint_every_steps=2000,
+        )
+        train_env.close()
 
-            print(f"[DQN] Evaluating ({args.eval_episodes} episodes)...")
+        agent.save(checkpoint_path)
+        all_training_curves[f"DQN seed={train_seed}"] = dqn_rewards
+        save_training_rewards_csv("DQN (ours)", train_seed, dqn_rewards, path=train_csv_path)
+
+        for eval_seed in eval_seeds:
+            print(f"[DQN] Evaluating on eval seed {eval_seed} ({args.eval_episodes} episodes)...")
+            set_seed(eval_seed)
             eval_env = make_eval_env()
             dqn_eval, dqn_failures = evaluate_with_failure_analysis(
                 eval_env, lambda obs, a=agent: a.select_action(obs, training=False),
                 n_episodes=args.eval_episodes,
             )
             eval_env.close()
-            eval_results["DQN (ours)"][seed] = dqn_eval
+            eval_results["DQN (ours)"][eval_seed] = dqn_eval
             all_failures["DQN (ours)"].extend(dqn_failures)
-            save_eval_results_csv("DQN (ours)", seed, dqn_eval, dqn_failures, path=eval_csv_path)
+            save_eval_results_csv("DQN (ours)", eval_seed, dqn_eval, dqn_failures, path=eval_csv_path)
 
             if best_dqn_agent is None or dqn_eval.mean() > max(
                 r.mean() for r in (eval_results["DQN (ours)"].values() or [np.array([0])])
             ) - 0.01:
                 best_dqn_agent = agent
 
-        # --- SB3 DQN ---
-        if args.algo in ["both", "sb3"]:
-            print(f"\n[SB3] Training ({args.timesteps} timesteps)...")
-            sb3_model, sb3_train_rewards = train_sb3(
-                total_timesteps=args.timesteps,
-                seed=seed,
-                save_path=f"results/checkpoints/sb3_dqn_seed{seed}",
-            )
-            if sb3_train_rewards:
-                all_training_curves[f"SB3 seed={seed}"] = sb3_train_rewards
-                save_training_rewards_csv("SB3 DQN", seed, sb3_train_rewards, path=train_csv_path)
+    # --- SB3 DQN ---
+    if args.algo in ["both", "sb3"]:
+        print(f"\n[SB3] Training ({args.timesteps} timesteps)...")
+        set_seed(train_seed)
+        sb3_model, sb3_train_rewards = train_sb3(
+            total_timesteps=args.timesteps,
+            seed=train_seed,
+            save_path=f"results/checkpoints/sb3_dqn_seed{train_seed}",
+        )
+        if sb3_train_rewards:
+            all_training_curves[f"SB3 seed={train_seed}"] = sb3_train_rewards
+            save_training_rewards_csv("SB3 DQN", train_seed, sb3_train_rewards, path=train_csv_path)
 
-            print(f"[SB3] Evaluating ({args.eval_episodes} episodes)...")
+        for eval_seed in eval_seeds:
+            print(f"[SB3] Evaluating on eval seed {eval_seed} ({args.eval_episodes} episodes)...")
+            set_seed(eval_seed)
             eval_env = make_eval_env()
             sb3_eval, sb3_failures = evaluate_with_failure_analysis(
                 eval_env, lambda obs, m=sb3_model: int(m.predict(obs, deterministic=True)[0]),
                 n_episodes=args.eval_episodes,
             )
             eval_env.close()
-            eval_results["SB3 DQN"][seed] = sb3_eval
+            eval_results["SB3 DQN"][eval_seed] = sb3_eval
             all_failures["SB3 DQN"].extend(sb3_failures)
-            save_eval_results_csv("SB3 DQN", seed, sb3_eval, sb3_failures, path=eval_csv_path)
+            save_eval_results_csv("SB3 DQN", eval_seed, sb3_eval, sb3_failures, path=eval_csv_path)
 
             if best_sb3_model is None or sb3_eval.mean() > max(
                 r.mean() for r in (eval_results["SB3 DQN"].values() or [np.array([0])])
