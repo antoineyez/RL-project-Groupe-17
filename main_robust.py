@@ -16,7 +16,7 @@ import gymnasium as gym
 import highway_env  # noqa: F401
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-from configs.shared_core_config import SHARED_CORE_CONFIG, SHARED_CORE_ENV_ID
+from configs.extension_config import EXTENSION_CONFIG, EXTENSION_ENV_ID
 from core.dqn_agent import DQNAgent, train_dqn_parallel, set_seed
 from extension.robustness_eval import evaluate_robustness, plot_robustness_results
 
@@ -126,8 +126,8 @@ class MixedDensityWrapper(gym.Wrapper):
 
 def make_robust_train_env(mode="random", min_density=0.5, max_density=3.0, total_local_steps=5000):
     def _init():
-        env = gym.make(SHARED_CORE_ENV_ID)
-        env.unwrapped.configure(SHARED_CORE_CONFIG)
+        env = gym.make(EXTENSION_ENV_ID)
+        env.unwrapped.configure(EXTENSION_CONFIG)
         if mode == "random":
             env = RandomDensityWrapper(env, min_density, max_density)
         elif mode == "curriculum":
@@ -251,8 +251,8 @@ def main():
     set_seed(args.seed)
 
     # Extract observation shape and actions count from a dummy environment
-    temp_env = gym.make(SHARED_CORE_ENV_ID)
-    temp_env.unwrapped.configure(SHARED_CORE_CONFIG)
+    temp_env = gym.make(EXTENSION_ENV_ID)
+    temp_env.unwrapped.configure(EXTENSION_CONFIG)
     obs, _ = temp_env.reset()
     obs_shape = obs.shape
     n_actions = temp_env.action_space.n
