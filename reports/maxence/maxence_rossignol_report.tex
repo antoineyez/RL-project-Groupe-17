@@ -122,7 +122,6 @@ SB3's policy, by contrast, exhibits \textbf{zero crashes}. Its near-constant rew
 \begin{itemize}
     \item \textbf{No hyperparameter tuning} was performed. Our DQN's 19\% crash rate could likely be reduced by tuning the exploration schedule or adding safety-oriented reward shaping. SB3 benefits from its well-tuned training loop (gradient clipping, learning rate scheduling, etc.) which our implementation lacks.
     \item \textbf{SB3's conservative policy}: SB3 achieves zero crashes but with near-constant reward ($\sim$20.45), suggesting it avoids lane changes entirely. A more nuanced analysis would require logging per-step actions to confirm this hypothesis.
-    \item The \textbf{extension task} has not yet been completed. Future work could explore Double-DQN and Prioritized Experience Replay as natural improvements to the current DQN implementation.
     \item The failure analysis is qualitative. A more rigorous approach would involve recording the full observation trajectory leading to each crash to identify systematic failure patterns.
 \end{itemize}
 
