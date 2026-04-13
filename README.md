@@ -8,31 +8,36 @@ Training and analysis of RL agents on the `highway-v0` environment from [highway
 
 The project has two parts:
 - **Core task**: Compare a from-scratch DQN implementation against Stable-Baselines3 DQN on a shared benchmark (`highway-v0`, Kinematics observations, DiscreteMetaAction).
-- **Extension task**: TBD.
+- **Extension task**: Train a density-robust DQN agent using curriculum learning and domain randomization, with modified reward shaping (higher collision penalty, higher speed bonus).
 
 ## Project Structure
 
 ```
 core/                       Core task implementation
   dqn_agent.py              DQN agent (replay buffer, epsilon-greedy, target network)
-  model_architecture.py     MLP network (input -> 256 -> 128 -> n_actions)
+  model_architecture.py     MLP network (input -> 256 -> 256 -> n_actions)
   sb3_training.py           Stable-Baselines3 DQN training wrapper
   evaluation.py             Evaluation, comparison tables, failure analysis, CSV export
+  density_wrapper.py        Gym wrapper for density curriculum/randomization
 configs/
   shared_core_config.py     Instructor-provided environment config
-  extension_config.py       Extension-specific config
-extension/                  Extension task (TBD)
+  extension_config.py       Extension config (modified rewards, density=2.0)
+extension/
+  robustness_eval.py        Evaluate agent robustness across densities
+  custom_env.py             Custom environment utilities
+  advanced_algo.py          Advanced algorithm variants
+  main_extension.py         Extension entry point
 scripts/
   train.sh                  SLURM batch job for training on DCE
   setup_env.sh              SLURM job to create conda env on DCE
   plot_results.py           Regenerate plots from CSV (works with partial data)
-results/                    Output directory (gitignored)
-  training_rewards.csv      Per-episode training rewards
-  eval_results.csv          Per-episode evaluation results with crash data
-  figures/                  Training curves and plots
-  checkpoints/              Saved models (.pt, .zip)
-  videos/                   Recorded rollouts
-main.py                     Full pipeline: train -> evaluate -> compare -> record
+  record_video.py           Generate videos from saved checkpoints
+  test_density.py           Test crash rates at different densities
+reports/                    Individual LaTeX reports
+slides/                    Group presentation slides (LaTeX)
+results_v3/                Core task results (matched 256x256 architectures)
+main.py                     Core task pipeline: train -> evaluate -> compare
+main_robust.py              Extension pipeline: robust DQN training + evaluation
 ```
 
 ## Setup
@@ -41,7 +46,7 @@ main.py                     Full pipeline: train -> evaluate -> compare -> recor
 
 ```bash
 uv sync
-uv run python main.py --seeds 1 --episodes 50 --sb3-timesteps 1500 --eval-episodes 10  # quick test
+uv run python main.py --seeds 1 --timesteps 1500 --eval-episodes 10  # quick test
 ```
 
 ### DCE (CentraleSupelec cluster)
@@ -60,8 +65,8 @@ pip install highway-env gymnasium stable-baselines3 numpy matplotlib tqdm pandas
 
 # 3. Submit a batch job
 mkdir -p logs
-sbatch scripts/train.sh                    # full run (3 seeds, 200 episodes)
-SEEDS=1 EPISODES=50 sbatch scripts/train.sh  # quick test
+sbatch scripts/train.sh                              # full run (3 seeds, 40k timesteps)
+SEEDS=1 TIMESTEPS=5000 sbatch scripts/train.sh       # quick test
 
 # 4. Monitor
 squeue -u $USER
@@ -71,22 +76,39 @@ tail -f $(ls -t logs/slurm-training-*.out | head -1)
 ## Usage
 
 ```bash
-# Full pipeline (default: 3 seeds, 200 episodes DQN, 6000 timesteps SB3, 50 eval episodes)
+# Core task (default: 3 seeds, 40k timesteps per agent, 50 eval episodes)
 uv run python main.py
+uv run python main.py --seeds 5 --timesteps 40000 --eval-episodes 50
 
-# Custom parameters
-uv run python main.py --seeds 5 --episodes 300 --sb3-timesteps 9000 --eval-episodes 50
+# Extension: robust DQN (random/curriculum/mixed density training)
+uv run python main_robust.py --mode mixed --timesteps 25000
+uv run python main_robust.py --mode all                          # run all 3 modes
 
-# Regenerate plots from CSV (useful if a run was interrupted)
-uv run python scripts/plot_results.py
+# Regenerate plots from CSV
+uv run python scripts/plot_results.py results_v3
 
-# Visual demo of trained agent
-uv run python main.py --seeds 1 --episodes 200 --render
+# Record videos from saved checkpoints
+uv run python scripts/record_video.py results_v3/checkpoints/
 ```
 
-## Results
+## Core Task Results (v3 -- matched architectures)
 
-Results are saved incrementally (per-seed) so partial runs are still usable:
-- `results/training_rewards.csv` and `results/eval_results.csv` for raw data
-- `results/figures/training_curves.png` for training plots
-- DQN checkpoints saved every 50 episodes during training
+Both agents use identical MLP architectures (256 -> 256) trained for 40,000 timesteps across 3 seeds (52, 53, 54).
+
+| Agent | Mean Reward | Std | Crash Rate |
+|-------|------------|-----|------------|
+| DQN (ours) | 19.85 | 4.63 | 19% (29/150) |
+| SB3 DQN | **20.48** | **0.05** | **0% (0/150)** |
+
+SB3 learns a very stable, conservative policy with zero crashes. Our DQN reaches higher peak rewards (up to 24.85) but crashes in ~19% of episodes.
+
+## Extension: Density Robustness
+
+The extension task trains a DQN to handle varying traffic densities using three strategies:
+- **Random**: uniform random density each episode
+- **Curriculum**: linear progression from easy to hard density
+- **Mixed**: curriculum for first 50%, then random for consolidation
+
+Modified reward shaping: `collision_reward=-15`, `high_speed_reward=5.0`, `lane_change_reward=-0.2` to strongly penalize crashes and encourage speed.
+
+Results are saved incrementally (per-seed) so partial runs are still usable.
