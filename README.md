@@ -2,7 +2,7 @@
 
 Training and analysis of RL agents on the `highway-v0` environment from [highway-env](http://highway-env.farama.org/).
 
-**Group 17**: Antoine Yezou, Ylias Larbi, Zacharie Boumard, Maxence Rossignol
+**Group 16**: Antoine Yezou, Ylias Larbi, Zacharie Boumard, Maxence Rossignol
 
 ## Overview
 
