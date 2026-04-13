@@ -60,15 +60,17 @@ def main():
     parser.add_argument("--render", action="store_true", help="Visual demo after training")
     parser.add_argument("--algo", type=str, default="both", choices=["dqn", "sb3", "both"], help="Algorithm to run")
     parser.add_argument("--exp-suffix", type=str, default="", help="Suffix to append to CSV files")
+    parser.add_argument("--output-dir", type=str, default="results", help="Base output directory for results")
     args = parser.parse_args()
 
-    os.makedirs("results/checkpoints", exist_ok=True)
-    os.makedirs("results/figures", exist_ok=True)
-    os.makedirs("results/videos", exist_ok=True)
+    output_dir = args.output_dir
+    os.makedirs(output_dir+"/checkpoints", exist_ok=True)
+    os.makedirs(output_dir+"/figures", exist_ok=True)
+    os.makedirs(output_dir+"/videos", exist_ok=True)
 
     csv_suffix = f"_{args.exp_suffix}" if args.exp_suffix else ""
-    train_csv_path = f"results/training_rewards{csv_suffix}.csv"
-    eval_csv_path = f"results/eval_results{csv_suffix}.csv"
+    train_csv_path = output_dir+f"/training_rewards{csv_suffix}.csv"
+    eval_csv_path = output_dir+f"/eval_results{csv_suffix}.csv"
 
     if args.algo == "both" and not args.exp_suffix:
         for csv_file in [train_csv_path, eval_csv_path]:
@@ -111,7 +113,7 @@ def main():
         # Création de multiples environnements pour DQNAgent
         train_env = SubprocVecEnv([sb3_make_env for _ in range(num_envs)])
         
-        checkpoint_path = f"results/checkpoints/dqn_seed{train_seed}.pt"
+        checkpoint_path = output_dir+f"/checkpoints/dqn_seed{train_seed}.pt"
         agent = DQNAgent(
             obs_shape=obs_shape,
             n_actions=n_actions,
@@ -157,7 +159,7 @@ def main():
         sb3_model, sb3_train_rewards = train_sb3(
             total_timesteps=args.timesteps,
             seed=train_seed,
-            save_path=f"results/checkpoints/sb3_dqn_seed{train_seed}",
+            save_path=output_dir+f"/checkpoints/sb3_dqn_seed{train_seed}",
         )
         if sb3_train_rewards:
             all_training_curves[f"SB3 seed={train_seed}"] = sb3_train_rewards

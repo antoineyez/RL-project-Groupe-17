@@ -13,7 +13,7 @@ SHARED_CORE_CONFIG = {
     },
     "action": {
         "type": "DiscreteMetaAction",
-        "target_speeds": [20, 25, 30],
+        "target_speeds": [15, 20, 25, 30],
     },
     "lanes_count": 4,
     "vehicles_count": 45,

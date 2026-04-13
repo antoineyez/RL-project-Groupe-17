@@ -13,7 +13,7 @@ EXTENSION_CONFIG = {
     },
     "action": {
         "type": "DiscreteMetaAction",
-        "target_speeds": [12, 15, 20, 25, 30],
+        "target_speeds": [20, 25, 30],
     },
     "lanes_count": 4,
     "vehicles_count": 45,
@@ -21,7 +21,7 @@ EXTENSION_CONFIG = {
     "initial_lane_id": None,
     "duration": 30,
     "ego_spacing": 2,
-    "vehicles_density": 1.0,
+    "vehicles_density": 2.0,
     "collision_reward": -15,
     "right_lane_reward": 0.0,
     "high_speed_reward": 5.0,
