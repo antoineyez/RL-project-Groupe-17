@@ -32,7 +32,7 @@ def make_eval_env(density):
         return env
     return _init
 
-def evaluate_robustness(model_path: str, densities: list, seeds: list, episodes_per_eval: int = 50, is_sb3: bool = False):
+def evaluate_robustness(model_path: str, densities: list, seeds: list, episodes_per_eval: int = 50, is_sb3: bool = False, min_steps_for_crash: int = 5):
     """
     Evaluates the agent across different traffic densities and seeds.
     
@@ -120,7 +120,7 @@ def evaluate_robustness(model_path: str, densities: list, seeds: list, episodes_
                             
                         if dones[env_idx]:
                             # Exclure les crashs immédiats (spawn bug de highway-env)
-                            if current_steps[env_idx] < 5:
+                            if current_steps[env_idx] < min_steps_for_crash:
                                 current_rewards[env_idx] = 0
                                 current_speeds[env_idx] = []
                                 current_steps[env_idx] = 0
@@ -292,7 +292,7 @@ if __name__ == "__main__":
         densities=DENSITIES,
         seeds=SEEDS,
         episodes_per_eval=args.episodes,
-        is_sb3=args.sb3
+        is_sb3=args.sb3,
     )
     
     plot_robustness_results(results)

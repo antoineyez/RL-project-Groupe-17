@@ -85,7 +85,6 @@ class CurriculumDensityWrapper(gym.Wrapper):
         # Calculate curriculum progress (0.0 to 1.0)
         progress = min(1.0, self.local_step_count / max(1, self.total_local_steps))
         current_density = self.min_density + progress * (self.max_density - self.min_density)
-        print(f"[DEBUG - Curriculum] Nouvelle densité : {current_density:.2f} (Progression : {progress:.1%})")
         self.env.unwrapped.configure({"vehicles_density": current_density})
         return super().reset(**kwargs)
 
@@ -119,7 +118,6 @@ class MixedDensityWrapper(gym.Wrapper):
             # Ligne droite (min_density vers max_density) pendant les 50% premiers
             current_density = self.min_density + progress * (self.max_density - self.min_density)
             
-        print(f"[DEBUG - Mixed] Nouvelle densité : {current_density:.2f}")
         self.env.unwrapped.configure({"vehicles_density": current_density})
         return super().reset(**kwargs)
 
@@ -225,7 +223,8 @@ def run_experiment(mode, args, obs_shape, n_actions, num_envs):
         model_path=checkpoint_path,
         densities=eval_densities,
         seeds=[args.seed],  # Evaluate on the training seed only to save time (50 eps already averages)
-        episodes_per_eval=50
+        episodes_per_eval=50,
+        min_steps_for_crash=2,
     )
 
     print("\n  SAVING PLOTS ")

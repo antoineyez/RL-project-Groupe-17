@@ -24,7 +24,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from configs.shared_core_config import SHARED_CORE_CONFIG, SHARED_CORE_ENV_ID
+from configs.extension_config import EXTENSION_CONFIG, EXTENSION_ENV_ID
 from core.model_architecture import DQNNetwork
 
 
@@ -32,8 +32,8 @@ def load_dqn_agent(checkpoint_path: str):
     """Load a DQN checkpoint and return an action selection function."""
     import torch
 
-    env = gym.make(SHARED_CORE_ENV_ID)
-    env.unwrapped.configure(SHARED_CORE_CONFIG)
+    env = gym.make(EXTENSION_ENV_ID)
+    env.unwrapped.configure(EXTENSION_CONFIG)
     obs, _ = env.reset()
     obs_shape = obs.shape
     n_actions = env.action_space.n
@@ -66,8 +66,8 @@ def load_sb3_agent(checkpoint_path: str):
 
 def record(select_action_fn, save_dir: str, name_prefix: str, n_episodes: int = 1):
     os.makedirs(save_dir, exist_ok=True)
-    env = gym.make(SHARED_CORE_ENV_ID, render_mode="rgb_array")
-    env.unwrapped.configure(SHARED_CORE_CONFIG)
+    env = gym.make(EXTENSION_ENV_ID, render_mode="rgb_array")
+    env.unwrapped.configure(EXTENSION_CONFIG)
     
     # Accélère la vidéo (par défaut highway-env la met à 2 fps ce qui donne un effet de "lag")
     env.metadata["render_fps"] = 5
