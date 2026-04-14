@@ -103,7 +103,7 @@ def main():
             lr=1e-3,
             gamma=0.99,
             epsilon_decay=int(args.timesteps * 0.5),
-            batch_size=64,
+            batch_size=128,
             target_update_freq=200,
         )
         dqn_rewards = train_dqn(
